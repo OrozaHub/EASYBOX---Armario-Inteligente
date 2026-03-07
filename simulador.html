@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyBox - Simulador do Armário Físico</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --locker-bg: #bdc3c7;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+
+        .container {
+            display: flex;
+            gap: 40px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* HARDWARE / LOCKER SIMULATION */
+        .hardware-panel {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            width: 350px;
+            text-align: center;
+        }
+
+        .screen {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2rem;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 4px solid #34495e;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .key {
+            background-color: #ecf0f1;
+            border: none;
+            padding: 15px;
+            font-size: 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .key:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            background-color: #bdc3c7;
+        }
+
+        .key.action-clear { background-color: #e74c3c; color: white; }
+        .key.action-enter { background-color: #2ecc71; color: white; grid-column: span 2; }
+
+        .door-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--locker-bg);
+            border-radius: 8px;
+            border: 2px dashed #7f8c8d;
+        }
+
+        .door-status {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        .door-status.open { color: #e67e22; }
+        
+        .btn-close-door {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+        }
+
+        .btn-close-door:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+
+        /* DEV CONTROLS (Simulating App/Backend state for testing) */
+        .dev-panel {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            width: 450px;
+        }
+
+        .dev-panel h2 {
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+            margin-top: 0;
+            color: var(--accent-color);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #34495e;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .btn-action {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+        
+        .code-display {
+            background-color: #f1f2f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .code-display span {
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: var(--primary-color);
+        }
+        
+        .log-area {
+            margin-top: 20px;
+            background: #2d3436;
+            color: #dfe6e9;
+            padding: 10px;
+            border-radius: 4px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Simulador EasyBox (Hardware e App)</h1>
+    <p class="subtitle">Como o backend ainda não pode rodar localmente sem o Node.js, esta é uma simulação completa do fluxo lógico no navegador.</p>
+
+    <div class="container">
+        <!-- APP SIMULATION PANEL -->
+        <div class="dev-panel">
+            <h2>📱 Aplicativo do Morador</h2>
+            <p style="font-size: 0.9em; color:#7f8c8d;">Simule as ações que aconteceriam no aplicativo e no Backend.</p>
+            
+            <div class="form-group">
+                <button class="btn-action" onclick="simulateUserReservation()">1. Morador: Solicitar Reserva (Gerar Código p/ Entregador)</button>
+            </div>
+
+            <div id="deliveryCodeDisplay" class="code-display" style="display:none;">
+                Código para passar ao Entregador:<br>
+                <span id="txtDeliveryCode">------</span>
+            </div>
+
+            <hr style="margin: 20px 0; border-top: 1px solid #eee;">
+
+            <h2>📱 Notificações do Morador</h2>
+            <div id="pickupCodeDisplay" class="code-display" style="display:none; border-left-color: #f39c12;">
+                🔔 O Entregador deixou o pacote!<br>
+                Seu Código de Retirada é:<br>
+                <span id="txtPickupCode">------</span>
+            </div>
+
+            <div class="log-area" id="serverLogs">
+                > [SERVIDOR] Aguardando ações...<br>
+            </div>
+        </div>
+
+        <!-- HARDWARE SIMULATION PANEL -->
+        <div class="hardware-panel">
+            <h2 style="margin-top:0;">Físico: Teclado do Armário</h2>
+            
+            <div class="screen" id="hardwareScreen">
+                Digite o Código
+            </div>
+
+            <div class="keypad">
+                <button class="key" onclick="pressKey('1')">1</button>
+                <button class="key" onclick="pressKey('2')">2</button>
+                <button class="key" onclick="pressKey('3')">3</button>
+                <button class="key" onclick="pressKey('4')">4</button>
+                <button class="key" onclick="pressKey('5')">5</button>
+                <button class="key" onclick="pressKey('6')">6</button>
+                <button class="key" onclick="pressKey('7')">7</button>
+                <button class="key" onclick="pressKey('8')">8</button>
+                <button class="key" onclick="pressKey('9')">9</button>
+                <button class="key action-clear" onclick="clearKeys()">C</button>
+                <button class="key" onclick="pressKey('0')">0</button>
+            </div>
+            
+            <button class="key action-enter" style="width: 100%; border-radius: 8px;" onclick="submitCode()">ENTRAR</button>
+
+            <div class="door-panel">
+                <div class="door-status" id="doorStatusText">Porta: FECHADA E TRAVADA</div>
+                <button class="btn-close-door" id="btnCloseDoor" disabled onclick="closeDoor()">Simular Fechar Porta</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- VIRTUAL BACKEND STATE (Simulating the Database) ---
+        let db = {
+            activeDeliveryCode: null,
+            activePickupCode: null,
+            reservationState: 'FREE', // FREE -> AWAITING_DELIVERY -> DELIVERED -> PICKED_UP
+            activeSlot: '01'
+        };
+
+        let currentInput = "";
+        let isDoorOpen = false;
+        let currentTransactionType = null; // 'DELIVERY' | 'PICKUP'
+
+        const screen = document.getElementById('hardwareScreen');
+        const logs = document.getElementById('serverLogs');
+
+        function logServer(msg) {
+            logs.innerHTML += `> ${msg}<br>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        // --- APP LOGIC ---
+        function simulateUserReservation() {
+            if(db.reservationState !== 'FREE' && db.reservationState !== 'PICKED_UP') {
+                alert("Já existe uma reserva em andamento no simulador!");
+                return;
+            }
+
+            // Generate 6 digit code
+            db.activeDeliveryCode = Math.floor(100000 + Math.random() * 900000).toString();
+            db.activePickupCode = null;
+            db.reservationState = 'AWAITING_DELIVERY';
+
+            document.getElementById('deliveryCodeDisplay').style.display = 'block';
+            document.getElementById('pickupCodeDisplay').style.display = 'none';
+            document.getElementById('txtDeliveryCode').innerText = db.activeDeliveryCode;
+
+            logServer(`[API] Slot ${db.activeSlot} reservado. Status: AWAITING_DELIVERY`);
+            logServer(`[API] Código de Entrega gerado: ${db.activeDeliveryCode}`);
+        }
+
+        // --- HARDWARE LOGIC ---
+        function pressKey(num) {
+            if(isDoorOpen) return; // Cannot type while door is open
+            if(currentInput.length < 6) {
+                currentInput += num;
+                screen.innerText = currentInput;
+            }
+        }
+
+        function clearKeys() {
+            if(isDoorOpen) return;
+            currentInput = "";
+            screen.innerText = "Digite o Código";
+        }
+
+        function submitCode() {
+            if(isDoorOpen) return;
+            if(currentInput.length !== 6) {
+                screen.innerText = "Cód. Invalido";
+                setTimeout(clearKeys, 1500);
+                return;
+            }
+
+            screen.innerText = "Validando...";
+            logServer(`[Armário] Requisição enviando código: ${currentInput}...`);
+
+            // Simulate Network Delay
+            setTimeout(() => {
+                // Simulate Backend Validation
+                if(currentInput === db.activeDeliveryCode && db.reservationState === 'AWAITING_DELIVERY') {
+                    // Delivery person arrived!
+                    logServer(`[API] Código validado (Entregador). Solicitando abertura de porta...`);
+                    openDoor('DELIVERY');
+                } 
+                else if (currentInput === db.activePickupCode && db.reservationState === 'DELIVERED') {
+                    // Resident arrived!
+                    logServer(`[API] Código validado (Morador). Solicitando abertura de porta...`);
+                    openDoor('PICKUP');
+                }
+                else {
+                    logServer(`[API] Erro: Código inválido ou expirado!`);
+                    screen.innerText = "Incorreto!";
+                    setTimeout(clearKeys, 2000);
+                }
+            }, 800);
+        }
+
+        function openDoor(transactionType) {
+            isDoorOpen = true;
+            currentTransactionType = transactionType;
+            currentInput = "";
+            
+            screen.innerText = "PORTA ABERTA";
+            screen.style.backgroundColor = "#e67e22";
+            
+            document.getElementById('doorStatusText').innerText = `Porta ${db.activeSlot}: ABERTA!`;
+            document.getElementById('doorStatusText').classList.add('open');
+            document.getElementById('btnCloseDoor').disabled = false;
+        }
+
+        function closeDoor() {
+            isDoorOpen = false;
+            
+            screen.style.backgroundColor = "#2c3e50";
+            screen.innerText = "Processando...";
+            
+            document.getElementById('doorStatusText').innerText = `Porta ${db.activeSlot}: FECHADA E TRAVADA`;
+            document.getElementById('doorStatusText').classList.remove('open');
+            document.getElementById('btnCloseDoor').disabled = true;
+
+            logServer(`[Armário] Sensor informou que porta fechou.`);
+
+            // Simulate Hardware telling backend that door closed
+            setTimeout(() => {
+                if(currentTransactionType === 'DELIVERY') {
+                    // Transition to Delivered
+                    db.reservationState = 'DELIVERED';
+                    db.activeDeliveryCode = null; // Expire old code
+                    db.activePickupCode = Math.floor(100000 + Math.random() * 900000).toString(); // Generate new code
+                    
+                    document.getElementById('deliveryCodeDisplay').style.display = 'none';
+                    document.getElementById('pickupCodeDisplay').style.display = 'block';
+                    document.getElementById('txtPickupCode').innerText = db.activePickupCode;
+
+                    logServer(`[API] Código do Entregador expirado.`);
+                    logServer(`[API] Geração de código de Retirada (${db.activePickupCode}) e notificação enviada ao morador.`);
+                }
+                else if(currentTransactionType === 'PICKUP') {
+                    // Finish workflow
+                    db.reservationState = 'PICKED_UP';
+                    db.activePickupCode = null;
+
+                    document.getElementById('pickupCodeDisplay').style.display = 'none';
+                    logServer(`[API] Retirada concluída! O Slot ${db.activeSlot} agora está Livre.`);
+                }
+
+                currentTransactionType = null;
+                clearKeys();
+            }, 1000);
+        }
+
+    </script>
+</body>
+</html>

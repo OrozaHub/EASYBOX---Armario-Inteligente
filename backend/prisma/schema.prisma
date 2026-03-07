@@ -1,0 +1,109 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         Role          @default(PROVIDER)
+  condominioId String?       // Admins belong to a specific Lockbox
+  condominio   Condominio?   @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+enum Role {
+  PROVIDER
+  ADMIN
+}
+
+model Condominio {
+  id                 String       @id @default(uuid())
+  nome               String
+  lat                Float
+  long               Float
+  masterPasswordHash String
+  slots              Slot[]
+  moradores          Morador[]
+  admins             User[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model Morador {
+  id            String        @id @default(uuid())
+  condominioId  String
+  condominio    Condominio    @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  apartamento     String
+  telefone      String
+  entregas      Entrega[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([condominioId, apartamento])
+}
+
+model Slot {
+  id            String        @id @default(uuid())
+  condominioId  String
+  condominio    Condominio    @relation(fields: [condominioId], references: [id], onDelete: Cascade)
+  numeroPorta   String
+  status        SlotStatus    @default(LIVRE)
+  mqttTopic     String
+  entregas      Entrega[]
+  logs          LogAbertura[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([condominioId, numeroPorta])
+}
+
+enum SlotStatus {
+  LIVRE
+  OCUPADO
+  MANUTENCAO
+}
+
+model Entrega {
+  id            String          @id @default(uuid())
+  slotId        String
+  slot          Slot            @relation(fields: [slotId], references: [id])
+  moradorId     String
+  morador       Morador         @relation(fields: [moradorId], references: [id])
+  hashAbertura  String          @unique
+  expiraEm      DateTime
+  status        EntregaStatus   @default(PENDENTE)
+  dataAbertura  DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum EntregaStatus {
+  PENDENTE
+  FINALIZADA
+  EXPIRADA
+  CANCELADA
+}
+
+model LogAbertura {
+  id            String        @id @default(uuid())
+  slotId        String
+  slot          Slot          @relation(fields: [slotId], references: [id])
+  metodo        MetodoAbertura
+  quemAbriu     String        // Identificação (ex: "ID_Morador", "Nome_Admin", "Provider")
+  dataHora      DateTime      @default(now())
+}
+
+enum MetodoAbertura {
+  HASH_ENTREGA
+  MASTER_KEY
+  PROVIDER_FORCE
+}
