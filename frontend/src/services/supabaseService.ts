@@ -124,14 +124,157 @@ export const supabaseService = {
     return { slot: entrega.slot.numeroPorta };
   },
 
-  // --- ADMIN / DASHBOARD ---
+  // --- ADMIN DASHBOARD ---
+  getAdminDashboard: async (condoId: string) => {
+    // 1. Buscar Armários e Slots
+    const { data: armarios, error: err1 } = await supabase
+      .from('Armario')
+      .select('*, slots:Slot(*)')
+      .eq('condominioId', condoId);
+    if (err1) throw err1;
+
+    // 2. Buscar Moradores e seus Telefones
+    const { data: moradores, error: err2 } = await supabase
+      .from('Morador')
+      .select('*, telefones:Telefone(*)')
+      .eq('condominioId', condoId);
+    if (err2) throw err2;
+
+    return { armarios: armarios || [], moradores: moradores || [] };
+  },
+
+  createMorador: async (condoId: string, apartamento: string, telefones: string[]) => {
+    // 1. Criar Morador
+    const { data: morador, error: err1 } = await supabase
+      .from('Morador')
+      .insert({ condominioId: condoId, apartamento })
+      .select()
+      .single();
+    if (err1) throw err1;
+
+    // 2. Criar Telefones
+    const phoneInserts = telefones.map(num => ({ numero: num, moradorId: morador.id }));
+    const { error: err2 } = await supabase.from('Telefone').insert(phoneInserts);
+    if (err2) throw err2;
+
+    return morador;
+  },
+
+  updateMorador: async (id: string, apartamento: string, telefones: string[]) => {
+    // 1. Atualizar Morador
+    await supabase.from('Morador').update({ apartamento }).eq('id', id);
+    // 2. Resetar e recriar telefones (mais simples para demo)
+    await supabase.from('Telefone').delete().eq('moradorId', id);
+    const phoneInserts = telefones.map(num => ({ numero: num, moradorId: id }));
+    await supabase.from('Telefone').insert(phoneInserts);
+    return { success: true };
+  },
+
+  deleteMorador: async (id: string) => {
+    const { error } = await supabase.from('Morador').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  createSlot: async (armarioId: string, numeroPorta: string) => {
+    const { error } = await supabase.from('Slot').insert({
+        armarioId,
+        numeroPorta,
+        status: 'LIVRE',
+        mqttTopic: `locker/slot/${numeroPorta}` // Valor padrão
+    });
+    if (error) throw error;
+  },
+
+  // --- PROVIDER DASHBOARD ---
+  getProviderDashboard: async () => {
+    // 1. Condomínios (com contagem de armários e moradores - contagem simplificada para demo)
+    const { data: condominios, error: errCondo } = await supabase.from('Condominio').select('*, armarios:Armario(id), moradores:Morador(id)');
+    if (errCondo) throw errCondo;
+
+    // 2. Todos os Armários (com nome do condomínio)
+    const { data: armarios, error: errArmario } = await supabase.from('Armario').select('*, condominio:Condominio(nome), slots:Slot(id)');
+    if (errArmario) throw errArmario;
+
+    // 3. Todos os Usuários Admins
+    const { data: admins, error: errAdmin } = await supabase.from('User').select('*, condominio:Condominio(nome, id)').eq('role', 'ADMIN');
+    if (errAdmin) throw errAdmin;
+
+    // Mapeando contagens para o formato esperado pelo frontend
+    const condoCounts = condominios.map(c => ({
+        ...c,
+        _count: { armarios: c.armarios?.length || 0, moradores: c.moradores?.length || 0 }
+    }));
+
+    return { 
+        condominios: condoCounts, 
+        armarios: armarios?.map(a => ({ ...a, _count: { slots: a.slots?.length || 0 } })) || [], 
+        admins: admins || [] 
+    };
+  },
+
+  createCondominio: async (form: any) => {
+    const { error } = await supabase.from('Condominio').insert({
+        nome: form.nome,
+        lat: form.lat,
+        long: form.long,
+        masterPasswordHash: form.masterPassword // Simplificado na demo
+    });
+    if (error) throw error;
+  },
+
+  updateCondominio: async (id: string, form: any) => {
+    const { error } = await supabase.from('Condominio').update({
+        nome: form.nome,
+        lat: form.lat,
+        long: form.long
+    }).eq('id', id);
+    if (error) throw error;
+  },
+
+  deleteCondominio: async (id: string) => {
+    await supabase.from('Condominio').delete().eq('id', id);
+  },
+
+  createArmario: async (form: any) => {
+    const { error } = await supabase.from('Armario').insert({
+        nome: form.nome,
+        serialHash: form.serialHash
+    });
+    if (error) throw error;
+  },
+
+  assignArmario: async (id: string, condoId: string | null) => {
+    await supabase.from('Armario').update({ condominioId: condoId }).eq('id', id);
+  },
+
+  deleteArmario: async (id: string) => {
+    await supabase.from('Armario').delete().eq('id', id);
+  },
+
+  createAdmin: async (form: any) => {
+     const { error } = await supabase.from('User').insert({
+         name: form.name,
+         email: form.email,
+         passwordHash: form.password, // Simplificado na demo
+         role: 'ADMIN',
+         condominioId: form.condominioId,
+         mustChangePassword: true
+     });
+     if (error) throw error;
+  },
+
+  deleteAdmin: async (id: string) => {
+     await supabase.from('User').delete().eq('id', id);
+  },
+
   getLockerState: async (condominioId: string) => {
     const { data, error } = await supabase
       .from('Slot')
-      .select('*')
-      .eq('condominioId', condominioId)
+      .select('*, armario:Armario!inner(condominioId)')
+      .eq('armario.condominioId', condominioId)
       .order('numeroPorta');
     if (error) throw error;
     return data;
   }
 };
+

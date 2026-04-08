@@ -90,6 +90,36 @@ export default function Login() {
           >
             {loading ? 'Validando...' : <><LogIn size={18} /> Entrar no Sistema</>}
           </button>
+
+          <div style={{ marginTop: '20px', borderTop: '1px solid var(--glass-border)', paddingTop: '20px' }}>
+            <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '15px' }}>MODO DEMONSTRAÇÃO</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <button 
+                    type="button" 
+                    className="btn-primary" 
+                    style={{ fontSize: '12px', padding: '10px' }}
+                    onClick={() => {
+                        setEmail('sindico@demo.com');
+                        setPassword('demo');
+                        setTimeout(() => document.querySelector('form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })), 100);
+                    }}
+                >
+                    Acesso Síndico
+                </button>
+                <button 
+                    type="button" 
+                    className="btn-primary" 
+                    style={{ fontSize: '12px', padding: '10px', borderColor: '#3498db', color: '#3498db' }}
+                    onClick={() => {
+                        setEmail('provider@demo.com');
+                        setPassword('demo');
+                        setTimeout(() => document.querySelector('form')?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })), 100);
+                    }}
+                >
+                    Acesso Global
+                </button>
+            </div>
+          </div>
         </form>
       </div>
     </div>
