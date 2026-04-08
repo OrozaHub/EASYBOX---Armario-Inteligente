@@ -46,8 +46,9 @@ export default function Home() {
   }, [condo?.id]);
 
   const fetchSlots = async () => {
+    if (!condo) return;
     try {
-      const data = await supabaseService.getLockerState(condominioId);
+      const data = await supabaseService.getLockerState(condo.id);
       setSlots(data);
     } catch (err) {
       console.error('Erro ao buscar slots:', err);
@@ -120,17 +121,20 @@ export default function Home() {
             </div>
 
             {/* CARD: ADMIN */}
-            <div className="glass-panel" style={{ padding: '25px', transition: 'transform 0.3s', cursor: 'pointer', gridColumn: 'span 2' }} onClick={() => navigate('/admin')}>
+            <div className="glass-panel" style={{ padding: '25px', transition: 'transform 0.3s', cursor: 'pointer', gridColumn: 'span 2', border: '1px solid rgba(0,186,255,0.3)' }} onClick={() => navigate('/login')}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '20px' }}>
                     <div style={{ background: 'rgba(0,186,255,0.1)', p: '12px', borderRadius: '10px' }}>
                         <Settings color="#00baff" size={28} />
                     </div>
                     <ExternalLink size={18} color="var(--text-muted)" />
                 </div>
-                <h3 style={{ fontSize: '22px', marginBottom: '10px' }}>Dashboard Administrativo</h3>
+                <h3 style={{ fontSize: '22px', marginBottom: '10px', color: '#00baff' }}>Painéis Administrativos</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6' }}>
-                    Visão geral de todos os condomínios, status de rede dos armários, logs de auditoria e gestão de moradores.
+                    Acesso para Síndicos e Gerentes Globais. Gerencie moradores, armários e logs.
                 </p>
+                <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', color: '#00baff', fontSize: '13px', fontWeight: 'bold' }}>
+                    ENTRAR COMO ADMIN <ChevronRight size={16} />
+                </div>
             </div>
 
           </div>
