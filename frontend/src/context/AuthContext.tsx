@@ -5,12 +5,14 @@ interface User {
   id: string;
   role: 'PROVIDER' | 'ADMIN';
   email: string;
+  mustChangePassword?: boolean;
+  condominioId?: string | null;
 }
 
 interface AuthContextData {
   token: string | null;
   user: User | null;
-  login: (token: string, role: string) => void;
+  login: (token: string, role: string, mustChangePassword?: boolean) => void;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -32,15 +34,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [token]);
 
-  const login = (newToken: string, role: string) => {
+  const login = (newToken: string, role: string, mustChangePassword?: boolean) => {
     localStorage.setItem('@EasyBox:token', newToken);
     localStorage.setItem('@EasyBox:role', role);
+    if (mustChangePassword !== undefined) {
+      localStorage.setItem('@EasyBox:mustChangePassword', String(mustChangePassword));
+    }
     setToken(newToken);
   };
 
   const logout = () => {
     localStorage.removeItem('@EasyBox:token');
     localStorage.removeItem('@EasyBox:role');
+    localStorage.removeItem('@EasyBox:mustChangePassword');
     setToken(null);
     setUser(null);
   };

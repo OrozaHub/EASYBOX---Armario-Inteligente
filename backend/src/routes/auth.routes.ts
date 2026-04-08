@@ -16,7 +16,7 @@ router.post('/register-provider', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { email, passwordHash, name, role: 'PROVIDER' }
+      data: { email, passwordHash, name, role: 'PROVIDER', mustChangePassword: false }
     });
 
     res.status(201).json({ message: 'Provider registered successfully', userId: user.id });
@@ -35,9 +35,20 @@ router.post('/login', async (req, res) => {
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const token = createToken({ id: user.id, role: user.role, email: user.email, condominioId: user.condominioId });
+    const token = createToken({ 
+      id: user.id, 
+      role: user.role, 
+      email: user.email, 
+      condominioId: user.condominioId,
+      mustChangePassword: user.mustChangePassword 
+    });
     
-    res.json({ token, role: user.role, condominioId: user.condominioId });
+    res.json({ 
+      token, 
+      role: user.role, 
+      condominioId: user.condominioId,
+      mustChangePassword: user.mustChangePassword 
+    });
   } catch (error) {
     res.status(500).json({ error: 'Login failed' });
   }

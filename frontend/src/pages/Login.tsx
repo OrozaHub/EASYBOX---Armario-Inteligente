@@ -18,9 +18,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const { token, role } = await api.post('/auth/login', { email, password });
-      login(token, role);
-      navigate(role === 'PROVIDER' ? '/provider' : '/admin');
+      const data = await api.post('/auth/login', { email, password });
+      login(data.token, data.role, data.mustChangePassword);
+      
+      if (data.role === 'PROVIDER') {
+        navigate('/provedor');
+      } else {
+        navigate('/admin');
+      }
     } catch (err: any) {
       setError(err.message || 'Falha ao Autenticar');
     } finally {

@@ -11,49 +11,43 @@ router.get('/:condominioId/dashboard', authMiddleware(['ADMIN', 'PROVIDER']), as
   try {
     const { condominioId } = req.params;
     
-    const slots = await prisma.slot.findMany({
+    // Get all armarios for this condominio
+    const armarios = await prisma.armario.findMany({
       where: { condominioId },
-      orderBy: { numeroPorta: 'asc' }
+      include: {
+        slots: {
+          orderBy: { numeroPorta: 'asc' }
+        }
+      }
     });
 
+    // Flatten slots for the UI if needed, or send grouped by armario
     const moradores = await prisma.morador.findMany({
       where: { condominioId },
+      include: { telefones: true },
       orderBy: { apartamento: 'asc' }
     });
 
-    res.json({ slots, moradores });
+    res.json({ armarios, moradores });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
   }
 });
 
-// Only PROVIDERs can register new Condominiums
-router.post('/condominio', authMiddleware(['PROVIDER']), async (req: AuthRequest, res) => {
+// Create slots for an Armario (PROVIDER or ADMIN)
+router.post('/armario/:armarioId/slots', authMiddleware(['PROVIDER', 'ADMIN']), async (req: AuthRequest, res) => {
   try {
-    const { nome, lat, long, masterPassword } = req.body;
-    
-    const masterPasswordHash = await bcrypt.hash(masterPassword, 10);
-    const condominio = await prisma.condominio.create({
-      data: { nome, lat, long, masterPasswordHash }
-    });
-
-    res.status(201).json(condominio);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create Condominio' });
-  }
-});
-
-// Create slots for a Condominio (PROVIDER or ADMIN)
-router.post('/:condominioId/slots', authMiddleware(['PROVIDER', 'ADMIN']), async (req: AuthRequest, res) => {
-  try {
-    const { condominioId } = req.params;
+    const { armarioId } = req.params;
     const { numeroPorta } = req.body;
     
+    const armario = await prisma.armario.findUnique({ where: { id: armarioId } });
+    if (!armario) return res.status(404).json({ error: 'Armário não encontrado' });
+
     // Topic is generated automatically or set conventionally
-    const mqttTopic = `easybox/${condominioId}/control`;
+    const mqttTopic = `easybox/hardware/${armario.serialHash}/control`;
 
     const slot = await prisma.slot.create({
-      data: { condominioId, numeroPorta, mqttTopic }
+      data: { armarioId, numeroPorta, mqttTopic }
     });
 
     res.status(201).json(slot);
@@ -62,19 +56,64 @@ router.post('/:condominioId/slots', authMiddleware(['PROVIDER', 'ADMIN']), async
   }
 });
 
-// Register a Resident (ADMIN only)
+// Register a Resident (ADMIN or PROVIDER)
 router.post('/:condominioId/morador', authMiddleware(['ADMIN', 'PROVIDER']), async (req: AuthRequest, res) => {
   try {
     const { condominioId } = req.params;
-    const { apartamento, telefone } = req.body;
-    
+    const { apartamento, telefones } = req.body; // telefones: string[]
+
     const morador = await prisma.morador.create({
-      data: { condominioId, apartamento, telefone }
+      data: {
+        condominioId,
+        apartamento,
+        telefones: {
+          create: telefones.map((num: string) => ({ numero: num }))
+        }
+      },
+      include: { telefones: true }
     });
 
     res.status(201).json(morador);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Failed to register Morador' });
+  }
+});
+
+// Update Resident (ADMIN or PROVIDER)
+router.put('/morador/:id', authMiddleware(['ADMIN', 'PROVIDER']), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { apartamento, telefones } = req.body;
+
+    // We replace all phones for this resident for simplicity
+    await prisma.telefone.deleteMany({ where: { moradorId: id } });
+
+    const morador = await prisma.morador.update({
+      where: { id },
+      data: {
+        apartamento,
+        telefones: {
+          create: telefones.map((num: string) => ({ numero: num }))
+        }
+      },
+      include: { telefones: true }
+    });
+
+    res.json(morador);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update Morador' });
+  }
+});
+
+// Delete Resident (ADMIN or PROVIDER)
+router.delete('/morador/:id', authMiddleware(['ADMIN', 'PROVIDER']), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.morador.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete Morador' });
   }
 });
 
@@ -86,16 +125,16 @@ router.post('/force-unlock', authMiddleware(['ADMIN', 'PROVIDER']), async (req: 
 
     const slot = await prisma.slot.findUnique({
       where: { id: slotId },
-      include: { condominio: true }
+      include: { armario: { include: { condominio: true } } }
     });
 
-    if (!slot) return res.status(404).json({ error: 'Slot not found' });
+    if (!slot || !slot.armario.condominio) return res.status(404).json({ error: 'Slot or Condominio not found' });
 
-    const isMasterValid = await bcrypt.compare(masterPassword, slot.condominio.masterPasswordHash);
+    const isMasterValid = await bcrypt.compare(masterPassword, slot.armario.condominio.masterPasswordHash);
     if (!isMasterValid) return res.status(403).json({ error: 'Invalid Master Password' });
 
-    // Send MQTT Command Immediately
-    publishUnlockCommand(slot.condominio.id, slot.numeroPorta);
+    // Send MQTT Command Immediately to the ARMARIO
+    publishUnlockCommand(slot.armario.serialHash, slot.numeroPorta);
 
     // Audit Log
     await prisma.logAbertura.create({
@@ -121,6 +160,48 @@ router.post('/force-unlock', authMiddleware(['ADMIN', 'PROVIDER']), async (req: 
     res.json({ message: `Slot ${slot.numeroPorta} forçado a abrir. Comando enviado via MQTT.` });
   } catch (error) {
     res.status(500).json({ error: 'Failed to force unlock' });
+  }
+});
+
+// Admin Setup (First Login)
+router.put('/setup', authMiddleware(['ADMIN']), async (req: AuthRequest, res) => {
+  try {
+    const { password, masterPassword } = req.body;
+    const user = req.user!;
+    const bcrypt = await import('bcrypt');
+
+    const adminUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { condominio: true }
+    });
+
+    if (!adminUser || !adminUser.condominio) {
+      return res.status(404).json({ error: 'Admin or Condominio not found' });
+    }
+
+    const updates: any = { mustChangePassword: false };
+    if (password) {
+      updates.passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    // Update User
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: updates
+    });
+
+    // Update Condominio Master Password
+    if (masterPassword) {
+      const masterPasswordHash = await bcrypt.hash(masterPassword, 10);
+      await prisma.condominio.update({
+        where: { id: adminUser.condominio.id },
+        data: { masterPasswordHash }
+      });
+    }
+
+    res.json({ message: 'Configuração concluída com sucesso!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao processar setup do administrador' });
   }
 });
 
