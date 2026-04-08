@@ -88,6 +88,12 @@ export const api = {
   },
 
   delete: async (endpoint: string, token?: string | null) => {
-    return api.post(endpoint, {}, token, 'DELETE');
+    try {
+        return await api.post(endpoint, {}, token, 'DELETE');
+    } catch (err: any) {
+        console.error(`Erro detalhado [DELETE ${endpoint}]:`, err);
+        throw err;
+    }
   }
 };
+

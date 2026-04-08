@@ -147,7 +147,7 @@ export const supabaseService = {
     // 1. Criar Morador
     const { data: morador, error: err1 } = await supabase
       .from('Morador')
-      .insert({ condominioId: condoId, apartamento })
+      .insert({ id: crypto.randomUUID(), condominioId: condoId, apartamento })
       .select()
       .single();
     if (err1) throw err1;
@@ -177,6 +177,7 @@ export const supabaseService = {
 
   createSlot: async (armarioId: string, numeroPorta: string) => {
     const { error } = await supabase.from('Slot').insert({
+        id: crypto.randomUUID(),
         armarioId,
         numeroPorta,
         status: 'LIVRE',
@@ -214,6 +215,7 @@ export const supabaseService = {
 
   createCondominio: async (form: any) => {
     const { error } = await supabase.from('Condominio').insert({
+        id: crypto.randomUUID(),
         nome: form.nome,
         lat: form.lat,
         long: form.long,
@@ -237,6 +239,7 @@ export const supabaseService = {
 
   createArmario: async (form: any) => {
     const { error } = await supabase.from('Armario').insert({
+        id: crypto.randomUUID(),
         nome: form.nome,
         serialHash: form.serialHash
     });
@@ -253,6 +256,7 @@ export const supabaseService = {
 
   createAdmin: async (form: any) => {
      const { error } = await supabase.from('User').insert({
+         id: crypto.randomUUID(),
          name: form.name,
          email: form.email,
          passwordHash: form.password, // Simplificado na demo
