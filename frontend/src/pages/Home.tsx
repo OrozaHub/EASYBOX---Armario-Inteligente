@@ -212,6 +212,9 @@ export default function Home() {
         }
       `}</style>
 
+      <footer style={{ marginTop: '60px', textAlign: 'center', padding: '20px', borderTop: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '12px' }}>
+          EasyBox Demo <span className="neon-text">v1.8 - Estabilizado</span> | Conectado ao Supabase
+      </footer>
     </div>
   );
 }

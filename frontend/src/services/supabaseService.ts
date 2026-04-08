@@ -14,6 +14,18 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c;
 }
 
+// Função resiliente para gerar UUIDs (Fallback para navegadores/contextos limitados)
+function generateUUID() {
+  try {
+    return crypto.randomUUID();
+  } catch (e) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+}
+
 export const supabaseService = {
   // --- ENTREGADOR ---
   detectLocal: async (lat: number, long: number) => {
@@ -147,7 +159,7 @@ export const supabaseService = {
     // 1. Criar Morador
     const { data: morador, error: err1 } = await supabase
       .from('Morador')
-      .insert({ id: crypto.randomUUID(), condominioId: condoId, apartamento })
+      .insert({ id: generateUUID(), condominioId: condoId, apartamento })
       .select()
       .single();
     if (err1) throw err1;
@@ -177,7 +189,7 @@ export const supabaseService = {
 
   createSlot: async (armarioId: string, numeroPorta: string) => {
     const { error } = await supabase.from('Slot').insert({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         armarioId,
         numeroPorta,
         status: 'LIVRE',
@@ -215,7 +227,7 @@ export const supabaseService = {
 
   createCondominio: async (form: any) => {
     const { error } = await supabase.from('Condominio').insert({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         nome: form.nome,
         lat: form.lat,
         long: form.long,
@@ -239,7 +251,7 @@ export const supabaseService = {
 
   createArmario: async (form: any) => {
     const { error } = await supabase.from('Armario').insert({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         nome: form.nome,
         serialHash: form.serialHash
     });
@@ -256,7 +268,7 @@ export const supabaseService = {
 
   createAdmin: async (form: any) => {
      const { error } = await supabase.from('User').insert({
-         id: crypto.randomUUID(),
+         id: generateUUID(),
          name: form.name,
          email: form.email,
          passwordHash: form.password, // Simplificado na demo
